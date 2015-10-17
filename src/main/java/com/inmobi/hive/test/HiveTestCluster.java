@@ -40,6 +40,7 @@ public class HiveTestCluster {
         miniHS2 = new MiniHS2(hiveConf, true);
         confOverlay = new HashMap<String, String>();
         confOverlay.put(ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");
+        confOverlay.put(ConfVars.SUBMITLOCALTASKVIACHILD.varname, "false");
         confOverlay.put(MRConfig.FRAMEWORK_NAME, MRConfig.LOCAL_FRAMEWORK_NAME);
         miniHS2.start(confOverlay);
         fs = miniHS2.getDfs().getFileSystem();

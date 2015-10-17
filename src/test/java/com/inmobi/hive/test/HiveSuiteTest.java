@@ -62,5 +62,21 @@ public class HiveSuiteTest {
         assertTrue(results.contains("1950\t22\t1"));
         assertTrue(results.contains("1949\t111\t1"));
     }
+    
+    @Test
+    public void testSimpleJoin() throws Throwable {
+        File inputRawDataA = new File("src/test/resources/files/weather.txt");
+        String inputRawDataAbsFilePathA = inputRawDataA.getAbsolutePath();
+        File inputRawDataB = new File("src/test/resources/files/tblb.txt");
+        String inputRawDataAbsFilePathB = inputRawDataB.getAbsolutePath();
+
+        Map<String, String> params = new HashMap<String, String>();
+        params.put("TABLE_A_DATA", inputRawDataAbsFilePathA);
+        params.put("TABLE_B_DATA", inputRawDataAbsFilePathB);
+        
+        List<String> results = testSuite.executeScript("src/test/resources/scripts/simple_join.hql", params);
+        assertEquals(1, results.size());
+        assertTrue(results.contains("1950\t22\t1"));
+    }
 
 }
