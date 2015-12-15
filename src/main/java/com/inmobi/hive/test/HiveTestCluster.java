@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -17,6 +18,7 @@ import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
 import org.apache.hadoop.hive.ql.Driver;
 import org.apache.hadoop.hive.ql.processors.CommandProcessor;
 import org.apache.hadoop.hive.ql.processors.CommandProcessorFactory;
+import org.apache.hadoop.hive.ql.processors.CommandProcessorResponse;
 import org.apache.hadoop.hive.ql.session.SessionState;
 import org.apache.hadoop.mapreduce.MRConfig;
 import org.apache.hive.jdbc.miniHS2.MiniHS2;
@@ -83,28 +85,45 @@ public class HiveTestCluster {
     
     private List<String> processStatement(String statement) {
         List<String> results = new ArrayList<String>();
-        String[] tokens = statement.trim().split("\\s+");
-        CommandProcessor proc = null;
         try {
             // Hive does special handling for the commands: 
             //   SET,RESET,DFS,CRYPTO,ADD,LIST,RELOAD,DELETE,COMPILE
-            proc = CommandProcessorFactory.getForHiveCommand(tokens, hiveConf);
-        } catch (SQLException e) {
-          throw new RuntimeException("SQL error when creating command processor", e);
-        }
-        if (proc == null) {
-            // this is for all other commands
-            proc = new Driver(hiveConf);
-        }
-        try {
-            proc.run(statement);
+           	String[] tokens = statement.trim().split("\\s+");
+        	CommandProcessor proc = CommandProcessorFactory.getForHiveCommand(tokens, hiveConf);
+        	if (proc == null) { proc = new Driver(); }
             if (proc instanceof org.apache.hadoop.hive.ql.Driver) {
+            	CommandProcessorResponse r = proc.run(statement);
+            	if (r.getResponseCode() != 0) {
+            		throw new RuntimeException("FAILED to execute \"" + statement + "\", error " + r.getErrorMessage());
+            	}
+            	/* Return is not checked here, as it appears to indicate whether or not there are any results. 
+            	 * What we do is just to return an empty List if there are no results
+            	 */
                 ((Driver) proc).getResults(results);
             }
-            // else these are one of specially handled ones with no results
-        } catch (Exception ex) {
+            else { // these are one of the specially handled commands with no results
+            	String command = statement;
+            	if (tokens.length > 1) {
+            		StringBuilder sb = new StringBuilder();
+            		for (int i = 1; i < tokens.length; i++) {
+            			sb.append(tokens[i]);
+            			sb.append(" ");
+            		}
+            		command = sb.toString();
+            	}
+            	// else we will just use statement - it did not tokenize
+
+            	CommandProcessorResponse r = proc.run(command);
+            	if (r.getResponseCode() != 0) {
+            		throw new RuntimeException("FAILED to execute \"" + statement + "\", error " + r.getErrorMessage());
+            	}
+            }
+        } catch (SQLException e) {
+          throw new RuntimeException("SQL error when creating command processor", e);
+        } catch (Exception ex) { // Error during run or getResults()
             throw new RuntimeException("Hive SQL exception", ex);
         }
+
         return results;
     }
 
